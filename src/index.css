@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-serif: "Merriweather", Georgia, serif;
+  --color-brand-pink: #ff006e;
+  --color-brand-orange: #fb5607;
+  --color-brand-yellow: #ffbe0b;
+  --color-brand-blue: #3a86ff;
+  --color-brand-purple: #8338ec;
+  --color-brand-cyan: #06d6a0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  @apply bg-white text-slate-800 antialiased;
+}
+
+/* ── AshuResumeMaker bright utilities ── */
+.brand-gradient {
+  background: linear-gradient(135deg, #ff006e 0%, #8338ec 45%, #3a86ff 100%);
+}
+.brand-gradient-warm {
+  background: linear-gradient(135deg, #fb5607 0%, #ffbe0b 50%, #ff006e 100%);
+}
+.brand-gradient-cool {
+  background: linear-gradient(135deg, #06d6a0 0%, #3a86ff 50%, #8338ec 100%);
+}
+.brand-text-gradient {
+  background: linear-gradient(135deg, #ff006e, #8338ec, #3a86ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.btn-brand {
+  @apply rounded-full font-bold text-white shadow-lg transition hover:scale-105 hover:shadow-xl;
+  background: linear-gradient(135deg, #ff006e 0%, #8338ec 50%, #3a86ff 100%);
+}
+.btn-brand-outline {
+  @apply rounded-full border-2 border-fuchsia-500 font-semibold text-fuchsia-600 transition hover:bg-fuchsia-50;
+}
+.card-bright {
+  @apply rounded-2xl border-2 border-transparent bg-white shadow-lg transition hover:-translate-y-1;
+  background-image: linear-gradient(white, white), linear-gradient(135deg, #ff006e, #8338ec, #3a86ff);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+.bg-dots-bright {
+  background-color: #fff5fb;
+  background-image: radial-gradient(#ff006e22 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.resume-page {
+  width: 794px;
+  background: #fff;
+}
+
+.pdf-export-target {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  z-index: -1;
+}
+
+.pdf-export-target .resume-page {
+  box-shadow: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  body {
+    background: white !important;
+    margin: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+    position: static !important;
+    left: auto !important;
+    opacity: 1 !important;
+    width: 100% !important;
+  }
+  .resume-page {
+    width: 210mm !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+}
