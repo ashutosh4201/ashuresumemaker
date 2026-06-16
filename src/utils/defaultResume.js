@@ -128,6 +128,20 @@ export function createEmptyResume() {
       },
       {
         id: crypto.randomUUID(),
+        name: "Book Management System",
+        link: "github.com/ashutosh4201/book-management-system",
+        description:
+          "Java Swing desktop app with MySQL JDBC — CRUD operations, tabbed UI, table view, and validated database connectivity.",
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Unit Converter",
+        link: "github.com/ashutosh4201/java-unit-converter",
+        description:
+          "Java Swing GUI for length, volume, and weight conversions with input validation and category-aware error handling.",
+      },
+      {
+        id: crypto.randomUUID(),
         name: "AshuResumeMaker — CV Builder SaaS",
         link: "github.com/ashutosh4201",
         description:
