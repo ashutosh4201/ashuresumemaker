@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 
 class UserProfile(models.Model):
@@ -22,7 +23,16 @@ class UserProfile(models.Model):
 
     @property
     def is_pro(self):
-        return self.plan == self.PLAN_PRO
+        if self.plan != self.PLAN_PRO:
+            return False
+        if self.pro_until and self.pro_until < timezone.now():
+            return False
+        return True
+
+    def sync_plan_expiry(self):
+        if self.plan == self.PLAN_PRO and self.pro_until and self.pro_until < timezone.now():
+            self.plan = self.PLAN_FREE
+            self.save(update_fields=["plan"])
 
     def __str__(self):
         return f"{self.user.username} ({self.plan})"

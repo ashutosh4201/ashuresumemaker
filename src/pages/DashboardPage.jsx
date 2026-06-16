@@ -5,9 +5,11 @@ import Footer from "../components/Footer.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import { listMyResumes, createResume, deleteResume } from "../api/client.js";
 import { createEmptyResume } from "../utils/defaultResume.js";
+import { useToast } from "../context/ToastContext.jsx";
 
 export default function DashboardPage() {
   const { user, isPro, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export default function DashboardPage() {
       localStorage.setItem("resumeflow-resume-id", created.id);
       navigate(`/builder?resume=${created.id}`);
     } catch (e) {
-      alert(e.message);
+      showToast(e.message, "error");
     } finally {
       setCreating(false);
     }
@@ -46,6 +48,7 @@ export default function DashboardPage() {
     if (!confirm("Delete this resume?")) return;
     await deleteResume(id);
     setResumes((r) => r.filter((x) => x.id !== id));
+    showToast("Resume deleted", "success");
   };
 
   if (authLoading || loading) {

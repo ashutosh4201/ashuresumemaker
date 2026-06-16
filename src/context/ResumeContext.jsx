@@ -7,6 +7,20 @@ const RESUME_ID_KEY = "resumeflow-resume-id";
 
 const ResumeContext = createContext(null);
 
+function mergeResume(partial) {
+  const base = createEmptyResume();
+  if (!partial || typeof partial !== "object") return base;
+  return {
+    ...base,
+    ...partial,
+    personal: { ...base.personal, ...(partial.personal || {}) },
+    experience: Array.isArray(partial.experience) ? partial.experience : base.experience,
+    education: Array.isArray(partial.education) ? partial.education : base.education,
+    skills: Array.isArray(partial.skills) ? partial.skills : base.skills,
+    projects: Array.isArray(partial.projects) ? partial.projects : base.projects,
+  };
+}
+
 export function ResumeProvider({ children }) {
   const [resume, setResume] = useState(createEmptyResume);
   const [resumeId, setResumeId] = useState(() => localStorage.getItem(RESUME_ID_KEY));
@@ -21,18 +35,19 @@ export function ResumeProvider({ children }) {
       const row = await getResume(id);
       const data = row.data && Object.keys(row.data).length ? row.data : createEmptyResume();
       skipNextSave.current = true;
-      setResume({
-        ...createEmptyResume(),
-        ...data,
-        template: row.template || data.template,
-        accent: row.accent || data.accent,
-      });
+      setResume(
+        mergeResume({
+          ...data,
+          template: row.template || data.template,
+          accent: row.accent || data.accent,
+        })
+      );
       setApiOnline(true);
     } catch {
       setApiOnline(false);
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) setResume(JSON.parse(saved));
+        if (saved) setResume(mergeResume(JSON.parse(saved)));
       } catch {
         /* ignore */
       }
@@ -40,6 +55,11 @@ export function ResumeProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 8000);
+
     (async () => {
       setLoading(true);
       const urlParams = new URLSearchParams(window.location.search);
@@ -55,21 +75,26 @@ export function ResumeProvider({ children }) {
           setResumeId(created.id);
           if (created.data) {
             skipNextSave.current = true;
-            setResume({ ...createEmptyResume(), ...created.data });
+            setResume(mergeResume({ ...created.data }));
           }
           setApiOnline(true);
         } catch {
           setApiOnline(false);
           try {
             const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) setResume(JSON.parse(saved));
+            if (saved) setResume(mergeResume(JSON.parse(saved)));
           } catch {
             /* ignore */
           }
         }
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [loadFromApi]);
 
   useEffect(() => {
@@ -97,12 +122,22 @@ export function ResumeProvider({ children }) {
     }, 800);
   }, [resume, resumeId, loading, apiOnline]);
 
-  const updatePersonal = (field, value) =>
-    setResume((r) => ({ ...r, personal: { ...r.personal, [field]: value } }));
+  const updatePersonal = useCallback(
+    (field, value) =>
+      setResume((r) => ({ ...r, personal: { ...r.personal, [field]: value } })),
+    []
+  );
 
-  const updateField = (field, value) => setResume((r) => ({ ...r, [field]: value }));
+  const updateField = useCallback((field, value) => {
+    setResume((r) => (r[field] === value ? r : { ...r, [field]: value }));
+  }, []);
 
-  const updateFields = (patch) => setResume((r) => ({ ...r, ...patch }));
+  const updateFields = useCallback((patch) => {
+    setResume((r) => {
+      const same = Object.entries(patch).every(([k, v]) => r[k] === v);
+      return same ? r : { ...r, ...patch };
+    });
+  }, []);
 
   const updateListItem = (section, id, field, value) =>
     setResume((r) => ({

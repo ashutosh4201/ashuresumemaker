@@ -4,10 +4,10 @@ import EditorPanel from "../components/EditorPanel.jsx";
 import ResumePreview from "../components/templates/ResumePreview.jsx";
 import { useResume } from "../context/ResumeContext.jsx";
 import { downloadPdf, printResume } from "../utils/pdfExport.js";
-import { TEMPLATES, isValidTemplateId } from "../utils/defaultResume.js";
+import { TEMPLATES, isValidTemplateId, TEMPLATE_DEFAULT_ACCENT } from "../utils/defaultResume.js";
 
 export default function BuilderPage() {
-  const { resume, resetResume, updateField, loading, syncing, apiOnline, resumeId } = useResume();
+  const { resume, resetResume, updateFields, loading, syncing, apiOnline } = useResume();
   const [searchParams, setSearchParams] = useSearchParams();
   const [downloading, setDownloading] = useState(false);
 
@@ -16,10 +16,11 @@ export default function BuilderPage() {
   const defaultTab = urlTab === "design" || urlTemplate ? "design" : "personal";
 
   useEffect(() => {
-    if (urlTemplate && isValidTemplateId(urlTemplate)) {
-      updateField("template", urlTemplate);
-    }
-  }, [urlTemplate, updateField]);
+    if (!urlTemplate || !isValidTemplateId(urlTemplate)) return;
+    const patch = { template: urlTemplate };
+    if (TEMPLATE_DEFAULT_ACCENT[urlTemplate]) patch.accent = TEMPLATE_DEFAULT_ACCENT[urlTemplate];
+    updateFields(patch);
+  }, [urlTemplate, updateFields]);
 
   const activeTemplateName =
     TEMPLATES.find((t) => t.id === resume.template)?.name || resume.template;

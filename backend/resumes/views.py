@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from billing.plans import can_create_resume, can_use_template, user_plan, FREE_TEMPLATE_IDS
 from .models import Resume
 from .serializers import ResumeSerializer, ResumeCreateSerializer
+from .permissions import get_active_resume, assert_can_read, assert_can_write
 
 
 class ResumeViewSet(viewsets.ModelViewSet):
@@ -23,7 +24,7 @@ class ResumeViewSet(viewsets.ModelViewSet):
         return ResumeSerializer
 
     def get_permissions(self):
-        if self.action in ("create", "retrieve", "update", "partial_update"):
+        if self.action in ("create", "retrieve", "update", "partial_update", "meta"):
             return [permissions.AllowAny()]
         if self.action == "destroy":
             return [permissions.IsAuthenticated()]
@@ -44,8 +45,8 @@ class ResumeViewSet(viewsets.ModelViewSet):
             )
         serializer = ResumeCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        template = serializer.validated_data.get("template") or serializer.validated_data.get("data", {}).get("template", "executive")
-        if user and not can_use_template(user, template):
+        template = serializer.validated_data.get("template") or serializer.validated_data.get("data", {}).get("template", "premium")
+        if not can_use_template(user, template):
             return Response(
                 {"detail": "This template requires Pro plan.", "code": "template_pro", "free_templates": list(FREE_TEMPLATE_IDS)},
                 status=status.HTTP_403_FORBIDDEN,
@@ -54,18 +55,20 @@ class ResumeViewSet(viewsets.ModelViewSet):
         return Response(ResumeSerializer(resume).data, status=status.HTTP_201_CREATED)
 
     def retrieve(self, request, *args, **kwargs):
-        resume = Resume.objects.filter(id=kwargs["id"], is_archived=False).first()
+        resume = get_active_resume(kwargs["id"])
         if not resume:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        assert_can_read(request.user, resume)
         return Response(ResumeSerializer(resume).data)
 
     def update(self, request, *args, **kwargs):
-        resume = Resume.objects.filter(id=kwargs["id"], is_archived=False).first()
+        resume = get_active_resume(kwargs["id"])
         if not resume:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        assert_can_write(request.user, resume)
         template = request.data.get("template") or request.data.get("data", {}).get("template")
-        user = request.user if request.user.is_authenticated else resume.user
-        if template and user and not can_use_template(user, template):
+        user = request.user if request.user.is_authenticated else None
+        if template and not can_use_template(user, template):
             return Response(
                 {"detail": "This template requires Pro plan.", "code": "template_pro"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -86,6 +89,24 @@ class ResumeViewSet(viewsets.ModelViewSet):
         resume.is_archived = True
         resume.save(update_fields=["is_archived"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def claim(self, request, id=None):
+        resume = get_active_resume(id)
+        if not resume:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if resume.user_id and resume.user_id != request.user.id:
+            return Response({"detail": "This resume belongs to another account."}, status=status.HTTP_403_FORBIDDEN)
+        if resume.user_id == request.user.id:
+            return Response(ResumeSerializer(resume).data)
+        if not can_create_resume(request.user):
+            return Response(
+                {"detail": "Free plan allows 1 resume. Upgrade to Pro or delete an existing resume.", "code": "plan_limit"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        resume.user = request.user
+        resume.save(update_fields=["user"])
+        return Response(ResumeSerializer(resume).data)
 
     @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
     def mine(self, request):

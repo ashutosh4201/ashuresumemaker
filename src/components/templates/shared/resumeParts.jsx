@@ -1,6 +1,8 @@
 /** A4 at 96dpi — crisp print/PDF */
 import { hexWithAlpha, normalizeHex } from "../../../utils/resumeColors.js";
 
+export const A4 = { width: 794, minHeight: 1123 };
+
 export const FONTS = {
   sans: "'Source Sans 3', 'Inter', 'Segoe UI', Arial, sans-serif",
   serif: "'Merriweather', Georgia, 'Times New Roman', serif",

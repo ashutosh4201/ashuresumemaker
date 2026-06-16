@@ -5,7 +5,26 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function request(path, options = {}) {
+async function refreshAccessToken() {
+  const refresh = localStorage.getItem("resumeflow-refresh");
+  if (!refresh) return false;
+  try {
+    const res = await fetch(`${API_BASE}/auth/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    localStorage.setItem("resumeflow-access", data.access);
+    if (data.refresh) localStorage.setItem("resumeflow-refresh", data.refresh);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function request(path, options = {}, retried = false) {
   let res;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -21,6 +40,13 @@ async function request(path, options = {}) {
       "Cannot reach the server. Start the backend: cd resumeflow/backend && python manage.py runserver"
     );
   }
+
+  if (res.status === 401 && !retried && localStorage.getItem("resumeflow-refresh")) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) return request(path, options, true);
+    logoutUser();
+  }
+
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const fieldErrors = data && typeof data === "object"
@@ -66,6 +92,10 @@ export async function updateResume(id, resume) {
   });
 }
 
+export async function claimResume(id) {
+  return request(`/resumes/${id}/claim/`, { method: "POST" });
+}
+
 export async function registerUser(username, email, password) {
   return request("/auth/register/", {
     method: "POST",
@@ -98,6 +128,17 @@ export async function fetchBillingStatus() {
 
 export async function fetchPlans() {
   return request("/billing/plans/");
+}
+
+export async function createCheckoutSession() {
+  return request("/billing/checkout/", { method: "POST" });
+}
+
+export async function verifyRazorpayDemoPayment(orderId, paymentId) {
+  return request("/billing/razorpay/demo/verify/", {
+    method: "POST",
+    body: JSON.stringify({ order_id: orderId, payment_id: paymentId }),
+  });
 }
 
 export async function upgradeToPro() {

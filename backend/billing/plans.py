@@ -51,8 +51,7 @@ def user_plan(user):
 
 
 def can_use_template(user, template_id):
-    plan = user_plan(user)
-    if plan in ("pro", "guest"):
+    if user_plan(user) == "pro":
         return True
     return template_id in FREE_TEMPLATE_IDS
 

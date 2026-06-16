@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage.jsx";
 import PricingPage from "./pages/PricingPage.jsx";
 import PrivacyPage from "./pages/PrivacyPage.jsx";
 import TermsPage from "./pages/TermsPage.jsx";
+import NotFoundPage from "./pages/NotFoundPage.jsx";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }

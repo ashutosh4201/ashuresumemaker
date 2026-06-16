@@ -1,8 +1,12 @@
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import Footer from "../components/Footer.jsx";
+import RazorpayDemoModal from "../components/RazorpayDemoModal.jsx";
 import { siteConfig } from "../config/siteConfig.js";
 import { useAuth } from "../context/AuthContext.jsx";
+import { useToast } from "../context/ToastContext.jsx";
+import { verifyRazorpayDemoPayment } from "../api/client.js";
 
 const PLANS = [
   {
@@ -30,20 +34,55 @@ const PLANS = [
 ];
 
 export default function PricingPage() {
-  const { user, isPro, upgrade } = useAuth();
+  const { user, isPro, checkout, refresh, billing } = useAuth();
+  const { showToast } = useToast();
+  const [params, setParams] = useSearchParams();
+  const [paying, setPaying] = useState(false);
+  const [razorpayOrder, setRazorpayOrder] = useState(null);
+
+  const razorpayDemo = billing?.razorpay_demo ?? true;
+  const stripeEnabled = billing?.stripe_enabled;
+
+  useEffect(() => {
+    if (params.get("success") === "1") {
+      refresh().then(() => showToast("Payment successful! Welcome to Pro ⭐", "success"));
+      setParams({}, { replace: true });
+    }
+    if (params.get("cancelled") === "1") {
+      showToast("Payment cancelled", "info");
+      setParams({}, { replace: true });
+    }
+  }, [params, refresh, setParams, showToast]);
 
   const handleUpgrade = async () => {
     if (!user) {
       window.location.href = "/register";
       return;
     }
+    setPaying(true);
     try {
-      await upgrade();
-      alert("🎉 Upgraded to Pro! All bright templates unlocked.");
+      const res = await checkout();
+      if (res.razorpay_demo && res.order) {
+        setRazorpayOrder(res.order);
+      }
     } catch (e) {
-      alert(e.message);
+      showToast(e.message, "error");
+    } finally {
+      setPaying(false);
     }
   };
+
+  const handleRazorpaySuccess = async ({ order_id, payment_id }) => {
+    await verifyRazorpayDemoPayment(order_id, payment_id);
+    await refresh();
+    showToast("Payment successful! Welcome to Pro ⭐", "success");
+  };
+
+  const paymentLabel = stripeEnabled
+    ? "Secure payments via Stripe"
+    : razorpayDemo
+      ? "Razorpay demo checkout (local test — no real charge)"
+      : "Secure payments via Razorpay";
 
   return (
     <div className="flex min-h-screen flex-col bg-dots-bright">
@@ -51,6 +90,7 @@ export default function PricingPage() {
       <main className="mx-auto max-w-5xl flex-1 px-4 py-16 text-center">
         <h1 className="text-4xl font-black brand-text-gradient">Simple, colorful pricing 🌈</h1>
         <p className="mt-3 font-medium text-purple-600">Start free. Go Pro when you&apos;re ready to shine!</p>
+        <p className="mt-1 text-xs text-slate-500">{paymentLabel}</p>
         <div className="mt-12 grid gap-8 md:grid-cols-2">
           {PLANS.map((p) => (
             <div
@@ -77,8 +117,8 @@ export default function PricingPage() {
                 ))}
               </ul>
               {p.id === "pro" && user && !isPro ? (
-                <button type="button" onClick={handleUpgrade} className="btn-brand mt-8 block w-full py-3 text-center text-sm">
-                  Upgrade now 🚀
+                <button type="button" onClick={handleUpgrade} disabled={paying} className="btn-brand mt-8 block w-full py-3 text-center text-sm disabled:opacity-60">
+                  {paying ? "Opening checkout…" : "Upgrade to Pro 🚀"}
                 </button>
               ) : p.id === "pro" && isPro ? (
                 <div className="mt-8 rounded-xl bg-gradient-to-r from-yellow-300 to-orange-400 py-3 text-center text-sm font-black text-purple-900">
@@ -99,6 +139,14 @@ export default function PricingPage() {
         </div>
       </main>
       <Footer />
+
+      {razorpayOrder && (
+        <RazorpayDemoModal
+          order={razorpayOrder}
+          onClose={() => setRazorpayOrder(null)}
+          onSuccess={handleRazorpaySuccess}
+        />
+      )}
     </div>
   );
 }
